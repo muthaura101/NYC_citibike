@@ -1,0 +1,155 @@
+Conducting an Exploratory Analysis of the new_york_citibike Public Dataset which is in the Google BigQuery SandBox. There are Two Structured Datasets That I Used. These are;
+  I) citibike_stations (bigquery-public-data.new_york_citibike.citibike_stations)
+  II) citibike_trips  (bigquery-public-data.new_york_citibike.citibike_trips)
+
+I couldn't share the BigQuery Project because I am using the Free Plan but I hope this publication will help anyone .
+
+## View the data
+SELECT *
+FROM
+  bigquery-public-data.new_york_citibike.citibike_trips
+
+## Number of trips by date
+SELECT
+  CAST(starttime AS date) as trip_date,
+  COUNT(*) AS trip_count
+FROM
+  bigquery-public-data.new_york_citibike.citibike_trips
+WHERE
+  starttime is not NULL
+GROUP BY
+  trip_date
+ORDER BY
+  trip_date DESC
+
+## Number of trips by year
+SELECT
+  EXTRACT(year from starttime) AS trip_year,
+  COUNT(*) AS trip_count
+FROM
+ bigquery-public-data.new_york_citibike.citibike_trips
+WHERE
+  starttime is not NULL
+GROUP BY
+  trip_year
+ORDER BY
+  trip_year
+
+## Count Usertype
+SELECT
+  COALESCE(usertype, 'Not Recorded') AS bike_usertype,
+COUNT(*) AS ride_count_by_start_hour 
+FROM
+  bigquery-public-data.new_york_citibike.citibike_trips
+GROUP BY
+  usertype
+ORDER BY
+  COUNT(*) DESC 
+
+## Calculate Average number of rides
+SELECT
+  station_id,
+  num_bikes_available,
+  (SELECT
+      AVG(num_bikes_available)
+    FROM bigquery-public-data.new_york_citibike.citibike_stations) AS avg_num_bikes_available
+FROM bigquery-public-data.new_york_citibike.citibike_stations
+ORDER BY
+  num_bikes_available DESC
+
+##Calculate the number of rides that have started at each station over time
+SELECT 
+  station_id,
+  name,
+  number_of_rides AS num_of_rides_at_station
+FROM
+  (
+    SELECT
+      start_station_id,
+      COUNT(*) number_of_rides
+    FROM
+      bigquery-public-data.new_york_citibike.citibike_trips
+      GROUP BY
+        start_station_id
+  )
+  AS station_num_trips
+  INNER JOIN
+  bigquery-public-data.new_york_citibike.citibike_stations
+  ON station_id =start_station_id
+  ORDER BY
+  number_of_rides DESC
+
+## Calculate the number of rides that have ended at each station over time
+SELECT
+  station_id,
+  name,
+  number_of_rides AS num_of_rides_to_station
+FROM
+  (
+    SELECT
+      end_station_id,
+      COUNT(*) number_of_rides
+    FROM
+      bigquery-public-data.new_york_citibike.citibike_trips
+    GROUP BY
+      end_station_id
+  )
+  AS station_num_trips
+  INNER JOIN
+  bigquery-public-data.new_york_citibike.citibike_stations
+  ON station_id =end_station_id
+  ORDER BY
+  number_of_rides DESC
+
+## The bike sharing company has 2 kinds of users; Subscribers and One-time customers.
+## Let's say we wanted a list of stations subscribers used
+
+SELECT
+  station_id,
+  name
+FROM
+  bigquery-public-data.new_york_citibike.citibike_stations
+WHERE
+  station_id IN
+  (
+    SELECT
+      start_station_id
+    FROM
+      bigquery-public-data.new_york_citibike.citibike_trips
+    WHERE
+      usertype = 'Subscriber'
+  )
+
+## Create a list of stations one time users used
+SELECT
+  station_id,
+  name
+FROM
+  bigquery-public-data.new_york_citibike.citibike_stations
+WHERE
+  station_id IN
+  (
+    SELECT
+      start_station_id
+    FROM
+      bigquery-public-data.new_york_citibike.citibike_trips
+    WHERE
+      usertype = 'Customer'
+  )
+
+## Creating a temporary table using WITH clause
+WITH trips_over_1_hr AS (
+  SELECT 
+    *
+  FROM
+    bigquery-public-data.new_york_citibike.citibike_trips
+  WHERE
+    tripduration >= 60
+  
+  )
+
+## Count how many trips are 60+ minutes long
+SELECT
+  COUNT(*) AS cnt
+FROM
+  trips_over_1_hr
